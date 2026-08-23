@@ -1,138 +1,468 @@
-package com.unirv.jogodavelha
+﻿package com.unirv.jogodavelha
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation3.runtime.NavEntry
+import androidx.navigation3.ui.NavDisplay
+
+sealed interface Route {
+    data object Login : Route
+    data object Registration : Route
+    data object Confirmation : Route
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         setContent {
-            JogoDaVelha()
+            MaterialTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    AppNavigation()
+                }
+            }
         }
     }
 }
 
 @Composable
-fun JogoDaVelha() {
-    var tabuleiro by remember { mutableStateOf(List(9) { "" }) }
-    var jogadorAtual by remember { mutableStateOf("X") }
-    var vencedor by remember { mutableStateOf("") }
+fun AppNavigation() {
+    val backStack = remember { mutableStateListOf<Route>(Route.Login) }
 
-    fun verificarVencedor(): String {
-        val combinacoes = listOf(
-            listOf(0, 1, 2), listOf(3, 4, 5), listOf(6, 7, 8),
-            listOf(0, 3, 6), listOf(1, 4, 7), listOf(2, 5, 8),
-            listOf(0, 4, 8), listOf(2, 4, 6)
-        )
-        for ((a, b, c) in combinacoes) {
-            if (tabuleiro[a] != "" && tabuleiro[a] == tabuleiro[b] && tabuleiro[a] == tabuleiro[c]) {
-                return tabuleiro[a]
+    NavDisplay(
+        backStack = backStack,
+        onBack = {
+            if (backStack.size > 1) {
+                backStack.removeLast()
+            }
+        },
+        transitionSpec = {
+            slideInHorizontally(
+                animationSpec = tween(400),
+                initialOffsetX = { largura -> largura }
+            ) + fadeIn() togetherWith
+                    slideOutHorizontally(
+                        animationSpec = tween(400),
+                        targetOffsetX = { largura -> -largura }
+                    ) + fadeOut()
+        },
+        popTransitionSpec = {
+            slideInHorizontally(
+                animationSpec = tween(400),
+                initialOffsetX = { largura -> -largura }
+            ) + fadeIn() togetherWith
+                    slideOutHorizontally(
+                        animationSpec = tween(400),
+                        targetOffsetX = { largura -> largura }
+                    ) + fadeOut()
+        },
+        entryProvider = { route ->
+            when (route) {
+                Route.Login -> NavEntry(route) {
+                    LoginScreen(
+                        onRegistration = { backStack.add(Route.Registration) }
+                    )
+                }
+
+                Route.Registration -> NavEntry(route) {
+                    RegistrationScreen(
+                        onBack = { backStack.removeLast() },
+                        onSubmit = { backStack.add(Route.Confirmation) }
+                    )
+                }
+
+                Route.Confirmation -> NavEntry(route) {
+                    ConfirmationScreen(
+                        onConfirm = {
+                            backStack.clear()
+                            backStack.add(Route.Login)
+                        }
+                    )
+                }
             }
         }
-        return ""
-    }
+    )
+}
 
-    fun jogar(index: Int) {
-        if (tabuleiro[index] == "" && vencedor == "") {
-            tabuleiro = tabuleiro.toMutableList().apply { this[index] = jogadorAtual }
-
-            val resultado = verificarVencedor()
-            if (resultado != "") {
-                vencedor = resultado
-            } else {
-                jogadorAtual = if (jogadorAtual == "X") "O" else "X"
-            }
-        }
-    }
-
-    fun reiniciar() {
-        tabuleiro = List(9) { "" }
-        jogadorAtual = "X"
-        vencedor = ""
-    }
+@Composable
+fun LoginScreen(onRegistration: () -> Unit) {
+    var usuario by remember { mutableStateOf("") }
+    var senha by remember { mutableStateOf("") }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .safeDrawingPadding()
+            .imePadding()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 28.dp, vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(
-            text = "Jogo da Velha",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
-        if (vencedor != "") {
-            Text(
-                text = "Jogador $vencedor venceu!",
-                fontSize = 22.sp,
-                color = Color(0xFF4CAF50),
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-        } else if (!tabuleiro.contains("")) {
-            Text(
-                text = "Empate!",
-                fontSize = 22.sp,
-                color = Color.Gray,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-        } else {
-            Text(
-                text = "Vez do jogador: $jogadorAtual",
-                fontSize = 22.sp,
-                color = if (jogadorAtual == "X") Color(0xFF2196F3) else Color(0xFFFF9800),
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-        }
-
-        for (linha in 0..2) {
-            Row {
-                for (coluna in 0..2) {
-                    val index = linha * 3 + coluna
-                    Box(
-                        modifier = Modifier
-                            .size(100.dp)
-                            .padding(4.dp)
-                            .background(Color(0xFFE0E0E0))
-                            .clickable { jogar(index) },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = tabuleiro[index],
-                            fontSize = 36.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = when (tabuleiro[index]) {
-                                "X" -> Color(0xFF2196F3)
-                                "O" -> Color(0xFFFF9800)
-                                else -> Color.Black
-                            }
-                        )
-                    }
-                }
+        Surface(
+            modifier = Modifier.size(112.dp),
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.primaryContainer,
+            border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = "UniRV",
+                    fontSize = 25.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
             }
         }
 
-        Button(
-            onClick = { reiniciar() },
-            modifier = Modifier.padding(top = 20.dp)
+        Spacer(modifier = Modifier.height(40.dp))
+
+        Text(
+            text = "Acesse sua conta",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        OutlinedTextField(
+            value = usuario,
+            onValueChange = { usuario = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Login") },
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedTextField(
+            value = senha,
+            onValueChange = { senha = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Senha") },
+            singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+        )
+
+        TextButton(
+            onClick = {},
+            modifier = Modifier.align(Alignment.End)
         ) {
-            Text(text = "Novo Jogo")
+            Text("Esqueci minha senha")
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Button(
+            onClick = {},
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+        ) {
+            Text("Entrar")
+        }
+
+        Text(
+            text = "ou",
+            modifier = Modifier.padding(vertical = 14.dp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        OutlinedButton(
+            onClick = {},
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+        ) {
+            Text("Entrar com Facebook")
+        }
+
+        Spacer(modifier = Modifier.height(36.dp))
+
+        OutlinedButton(
+            onClick = onRegistration,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+        ) {
+            Text("Cadastro")
+        }
+    }
+}
+
+@Composable
+fun RegistrationScreen(
+    onBack: () -> Unit,
+    onSubmit: () -> Unit
+) {
+    var usuario by remember { mutableStateOf("") }
+    var senha by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var nome by remember { mutableStateOf("") }
+    var sobrenome by remember { mutableStateOf("") }
+    var dataNascimento by remember { mutableStateOf("") }
+    var telefone by remember { mutableStateOf("") }
+    var endereco by remember { mutableStateOf("") }
+    var comprador by remember { mutableStateOf(true) }
+    var vendedor by remember { mutableStateOf(false) }
+    var receberNoticias by remember { mutableStateOf(true) }
+    var tentouEnviar by remember { mutableStateOf(false) }
+
+    val camposObrigatoriosValidos = usuario.isNotBlank() &&
+            senha.isNotBlank() &&
+            email.isNotBlank()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .safeDrawingPadding()
+            .imePadding()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp, vertical = 16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextButton(onClick = onBack) {
+                Text("‹ Voltar")
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            Text(
+                text = "Cadastro",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.width(76.dp))
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedTextField(
+            value = usuario,
+            onValueChange = { usuario = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Login *") },
+            singleLine = true,
+            isError = tentouEnviar && usuario.isBlank()
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        OutlinedTextField(
+            value = senha,
+            onValueChange = { senha = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Senha *") },
+            singleLine = true,
+            isError = tentouEnviar && senha.isBlank(),
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        OutlinedTextField(
+            value = email,
+            onValueChange = { email = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("E-mail *") },
+            singleLine = true,
+            isError = tentouEnviar && email.isBlank(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        OutlinedTextField(
+            value = nome,
+            onValueChange = { nome = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Nome") },
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        OutlinedTextField(
+            value = sobrenome,
+            onValueChange = { sobrenome = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Sobrenome") },
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        OutlinedTextField(
+            value = dataNascimento,
+            onValueChange = { dataNascimento = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Data de nascimento") },
+            placeholder = { Text("dd/mm/aaaa") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        OutlinedTextField(
+            value = telefone,
+            onValueChange = { telefone = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Telefone") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        OutlinedTextField(
+            value = endereco,
+            onValueChange = { endereco = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Endereço") },
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        CheckOption(
+            text = "Quero comprar",
+            checked = comprador,
+            onCheckedChange = { comprador = it }
+        )
+        CheckOption(
+            text = "Quero vender",
+            checked = vendedor,
+            onCheckedChange = { vendedor = it }
+        )
+        CheckOption(
+            text = "Quero receber notícias",
+            checked = receberNoticias,
+            onCheckedChange = { receberNoticias = it }
+        )
+
+        if (tentouEnviar && !camposObrigatoriosValidos) {
+            Text(
+                text = "Preencha login, senha e e-mail.",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            onClick = {
+                tentouEnviar = true
+                if (camposObrigatoriosValidos) {
+                    onSubmit()
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+        ) {
+            Text("Enviar")
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+@Composable
+fun CheckOption(
+    text: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Checkbox(
+            checked = checked,
+            onCheckedChange = onCheckedChange
+        )
+        Text(text)
+    }
+}
+
+@Composable
+fun ConfirmationScreen(onConfirm: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .safeDrawingPadding()
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Obrigado por se cadastrar!",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "Enviamos uma mensagem para o seu e-mail para concluir o cadastro.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                HorizontalDivider(modifier = Modifier.padding(top = 20.dp))
+
+                TextButton(
+                    onClick = onConfirm,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("OK")
+                }
+            }
         }
     }
 }

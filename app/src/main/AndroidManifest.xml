@@ -12,6 +12,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Mobile_Example">
         <activity
+            android:name="com.unirv.jogodavelha.JogoDaVelhaActivity"
+            android:exported="false" />
+        <activity
             android:name="com.unirv.jogodavelha.MainActivity"
             android:exported="true"
             android:label="@string/app_name"
